@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>A2 · Prices, Returns, and Distributions | FinTech Lab</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="design.css?v=20261030-python-code">
+  <script src="navigation.js?v=20261029-current-section" defer></script>
+  <script src="btc-series.js?v=20261029-btc1" defer></script>
+  <script src="game.js?v=20261030-price-axis" defer></script>
+  <script src="story.js?v=20261030-python-panel" defer></script>
+  <script src="approx.js?v=20261029-gap2" defer></script>
+  <script src="return-animation.js?v=20261029-animate1" defer></script>
+  <script src="white-noise.js?v=20261030-python-panels" defer></script>
+</head>
+<body>
+  <header class="site-header"><a class="brand" href="../index.html">FinTech: Data, Risk, and Digital Assets</a><nav class="head-links" aria-label="Course tools"><a href="TEACHER_SCRIPT.md">Teacher script</a></nav></header>
+  <div class="shell" id="top">
+    <nav class="left-nav" aria-label="Lesson sections"><h3>Chapter 1: Financial time series</h3><a href="#story" class="active">Janni’s BTC investment</a><a href="#returns">Simple &amp; log returns</a><a href="#game">Distribution lab</a><a href="#charts">Prediction &amp; white noise</a><a href="#check">Exit ticket</a></nav>
+    <main>
+      <div class="hero"><div class="eyebrow">Chapter 1: Financial time series</div><h1>From Prices to Returns</h1><ul class="hero-topics"><li>Calculate simple and log returns.</li><li>Explore return distributions with histograms and density curves.</li><li>Use the ACF and Ljung–Box test to examine whether past returns carry information about later returns.</li></ul></div>
+
+      <section class="lesson-section" id="story">
+        <h2>01 · Motivation: Janni’s BTC investment</h2>
+        <p>Janni bought BTC on <strong>1 July 2026</strong>. His old friend Wolfgang is a mathematician at Humboldt University of Berlin. Today, Janni asks him to help analyze the BTC price series.</p>
+        <div class="media-card story-sequence" aria-label="Four-page click-through story about Janni’s Bitcoin purchase">
+          <button class="story-picture" id="story-picture" type="button" aria-label="Show next scene">
+            <img id="story-image" src="../assets/storyboard_v2/scene_01.png" alt="Wolfgang greets his friend Janni outside Jannimu Coffee">
+          </button>
+          <div class="story-caption" aria-live="polite" aria-atomic="true"><span id="story-speaker">Setting</span><strong id="story-line">Wolfgang, a Humboldt statistician, visits his friend Janni as usual.</strong></div>
+          <div class="story-controls"><button id="story-previous" type="button">← Previous</button><span id="story-progress" aria-label="Scene progress">1 / 4</span><div class="story-control-actions"><button id="story-expand" type="button" aria-label="View current scene at full size">Expand ↗</button><button id="story-next" type="button">Next →</button></div></div>
+        </div>
+        <div id="story-dialog" class="story-dialog" role="dialog" aria-modal="true" aria-label="Expanded course scene" hidden><div class="story-dialog-panel"><div class="story-dialog-head"><span id="story-dialog-title">Scene</span><button id="story-dialog-close" type="button">Close ×</button></div><img id="story-dialog-image" alt=""><p id="story-dialog-caption"></p></div></div>
+        <details class="python-reproduce" id="python-story-prices" hidden><summary>Reproduce with Python</summary><div class="python-reproduce-body"><p>Reproduce the 93 daily BTC prices shown above.</p><a href="../assets/python/btc_daily_prices.py" download="btc_daily_prices.py">Download Python script ↓</a><pre><code>&quot;&quot;&quot;Reproduce a FinTech course figure.
+Install: python -m pip install numpy pandas matplotlib scipy
+For data examples, save avg_price_per_day.csv beside this script.
+&quot;&quot;&quot;
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Read the same 93 BTC prices used by the website.
+data_file = Path(__file__).with_name(&quot;avg_price_per_day.csv&quot;)
+if not data_file.exists():
+    data_file = Path(__file__).resolve().parent.parent / &quot;data/avg_price_per_day.csv&quot;
+data = pd.read_csv(data_file, usecols=[&quot;Date&quot;, &quot;BTC&quot;], parse_dates=[&quot;Date&quot;])
+data = data.loc[data[&quot;Date&quot;].between(&quot;2026-04-07&quot;, &quot;2026-07-08&quot;)].sort_values(&quot;Date&quot;)
+prices = data[&quot;BTC&quot;].to_numpy(dtype=float)
+dates = data[&quot;Date&quot;].to_numpy()
+g = 100 * np.diff(np.log(prices))  # Log returns in percentage points.
+
+fig, ax = plt.subplots(figsize=(7, 4))
+ax.plot(dates, prices, color=&quot;#2167a0&quot;)
+ax.scatter(dates[[0, -1]], prices[[0, -1]], color=&quot;#2167a0&quot;)
+ax.set(xlabel=&quot;Date&quot;, ylabel=&quot;BTC price (USD)&quot;, title=&quot;BTC price path&quot;)
+fig.autofmt_xdate()
+
+plt.tight_layout()
+plt.show()
+</code></pre></div></details>
+        <div class="dataset-download">
+          <h3>Dataset download</h3>
+          <p>Data source: <a href="https://blockchain-research-center.com" target="_blank" rel="noopener">Blockchain Research Center</a>.</p>
+          <a class="dataset-download-link" href="../assets/data/avg_price_per_day.csv" download="avg_price_per_day.csv">Download dataset (CSV) ↓</a><p><a href="../assets/python/fintech_python_examples.zip" download="fintech_python_examples.zip">Download all Python examples + dataset (ZIP) ↓</a></p><p class="python-setup">To run the Python examples below, save the CSV beside the downloaded script. Install the packages once: <code>python -m pip install numpy pandas matplotlib scipy</code>.</p>
+        </div>
+      </section>
+
+      <section class="lesson-section" id="returns">
+        <h2>02 · From an investor’s return to log returns</h2>
+        <p>Janni bought one BTC on 1 July 2026. Assuming he paid that day’s average of <strong>USD 59,345</strong> and values it at the 2 July average of <strong>USD 61,045</strong>, his return on 2 July is:</p>
+        <div class="formula simple-return-formula"><strong class="formula-heading">Simple price return</strong><div class="formula-line"><span>r<sub>t</sub></span><span>=</span><span>(P<sub>t</sub> − P<sub>t−1</sub>) / P<sub>t−1</sub></span></div><div class="formula-line"><span>r<sub>2 Jul</sub></span><span>=</span><span>(61,045 − 59,345) / 59,345</span></div><div class="formula-line"><span></span><span>≈</span><strong>+2.865%</strong></div></div>
+        <div class="question-bridge"><strong>Janni asks:</strong> What was the price return from 1 to 3 July?</div>
+        <figure class="return-animation" id="return-animation" aria-label="Animated BTC prices and daily simple returns from 1 to 3 July 2026">
+          <div class="return-animation-head"><button id="replay-return-animation" type="button" aria-label="Replay the BTC price and return animation">↻ Replay</button></div>
+          <svg viewBox="0 0 760 472" role="img" aria-labelledby="return-animation-title return-animation-desc">
+            <title id="return-animation-title">Three BTC daily prices, two simple returns</title>
+            <desc id="return-animation-desc">USD 59,345 on 1 July, USD 61,045 on 2 July, and USD 61,923 on 3 July 2026. The first daily simple return is positive 2.865 percent, with 59,345 as its starting price. The second is positive 1.438 percent, with 61,045 as its starting price. The two-day simple price return is positive 4.344 percent after multiplying the two growth factors and subtracting one.</desc>
+            <defs><marker id="return-arrowhead" markerUnits="userSpaceOnUse" markerWidth="18" markerHeight="18" refX="16" refY="9" orient="auto"><path d="M0 0 L18 9 L0 18z" fill="#bc7651"/></marker></defs>
+            <g class="return-stage-one">
+              <rect x="22" y="54" width="190" height="102" rx="9" fill="#f9faf7" stroke="#d7dfd9"/><text x="42" y="84" class="return-date">1 JUL · USD</text><text x="42" y="132" class="return-price-number">59,345</text>
+            </g>
+            <g class="return-stage-two">
+              <rect x="285" y="54" width="190" height="102" rx="9" fill="#f9faf7" stroke="#d7dfd9"/><text x="305" y="84" class="return-date">2 JUL · USD</text><text x="305" y="132" class="return-price-number">61,045</text>
+              <path class="return-motion-one" d="M222 106 H270" stroke="#bc7651" stroke-width="5" fill="none" marker-end="url(#return-arrowhead)"/>
+              <text x="248" y="57" text-anchor="middle" class="return-percent-one">+2.865%</text>
+            </g>
+            <g class="return-stage-three">
+              <rect x="548" y="54" width="190" height="102" rx="9" fill="#f9faf7" stroke="#d7dfd9"/><text x="568" y="84" class="return-date">3 JUL · USD</text><text x="568" y="132" class="return-price-number">61,923</text>
+              <path class="return-motion-two" d="M485 106 H533" stroke="#bc7651" stroke-width="5" fill="none" marker-end="url(#return-arrowhead)"/>
+              <text x="511" y="57" text-anchor="middle" class="return-percent-two">+1.438%</text>
+            </g>
+            <g class="return-stage-four">
+              <path d="M116 162 V188 H379" stroke="#bc7651" stroke-width="2" fill="none"/><circle cx="116" cy="162" r="5" fill="#bc7651"/>
+              <rect x="38" y="196" width="328" height="76" rx="7" fill="#f8efe9"/>
+              <text x="56" y="225" class="return-fraction">(61,045 − 59,345) / <tspan class="return-base-one">59,345</tspan></text>
+              <text x="56" y="255" class="return-result">= +2.865%</text>
+            </g>
+            <g class="return-stage-five">
+              <path d="M379 162 V280 H686" stroke="#246f69" stroke-width="2" fill="none"/><circle cx="379" cy="162" r="5" fill="#246f69"/>
+              <rect x="394" y="284" width="328" height="65" rx="7" fill="#eaf3ef"/>
+              <text x="410" y="310" class="return-fraction">(61,923 − 61,045) / <tspan class="return-base-two">61,045</tspan></text>
+              <text x="410" y="337" class="return-result">= +1.438%</text>
+            </g>
+            <g class="return-stage-six">
+              <rect x="38" y="370" width="684" height="82" rx="8" fill="#edf3ef" stroke="#d8e5dc"/>
+              <text x="55" y="396" class="return-total-label">1 → 3 JUL · SIMPLE RETURN</text>
+              <text x="55" y="431" class="return-total-formula">(1 + 0.028646)(1 + 0.014383) − 1 ≈ 61,923 / 59,345 − 1 = <tspan class="return-total-result">+4.344%</tspan></text>
+            </g>
+          </svg>
+        </figure>
+        <p>For a long price series, multiplying many growth factors is cumbersome. <strong>Can we use a measure that adds across time?</strong></p>
+        <figure class="math-visual" aria-labelledby="log-across-title">
+          <div class="math-visual-head"><span>ACROSS TIME</span><h3 id="log-across-title">Log returns turn the product into a sum</h3></div>
+          <div class="math-row"><span class="math-kicker">ONE DAY</span><div class="math-equations"><div class="math-equation-line"><span>g<sub>t</sub></span><b>=</b><span>ln(P<sub>t</sub> / P<sub>t−1</sub>)</span></div><div class="math-equation-line"><span></span><b>=</b><strong>ln(1 + r<sub>t</sub>)</strong></div></div></div>
+          <div class="math-row math-row-accent"><span class="math-kicker">1 → 3 JUL</span><div class="math-equations"><div class="math-equation-line"><span>g<sub>1→3 Jul</sub></span><b>=</b><span>ln(61,045 / 59,345) + ln(61,923 / 61,045)</span></div><div class="math-equation-line"><span></span><b>=</b><span>ln(61,923 / 59,345)</span></div><div class="math-equation-line"><span></span><b>=</b><span>+2.824% + 1.428%</span></div><div class="math-equation-line math-equation-result"><span></span><b>=</b><strong>+4.252%</strong></div></div></div>
+        </figure>
+        <p>Log returns are common in financial time-series analysis because they add exactly over time. That convenience does not make them identical to an investor’s simple percentage return. <a href="https://assets.cambridge.org/97811070/34662/excerpt/9781107034662_excerpt.pdf" target="_blank" rel="noopener">Chris Brooks, <em>Introductory Econometrics for Finance</em>, Box 1.3</a> explains this time-additive property.</p>
+        <div class="comparison-card" aria-label="Interactive comparison of simple and log returns">
+          <div class="math-visual-head"><span>Compare Simple and Log return</span></div>
+          <svg id="return-comparison-plot" viewBox="0 0 760 420" role="img" tabindex="0" aria-label="Interactive simple and log return curves; move the pointer or use left and right arrow keys to compare values"></svg>
+          <div class="comparison-gap" aria-live="polite"><span>Simple − Log</span><div class="comparison-gap-track"><div id="comparison-gap-fill" class="comparison-gap-fill"></div></div><output id="comparison-gap-value">+0.092 pp</output></div><details class="python-reproduce"><summary>Reproduce with Python</summary><div class="python-reproduce-body"><p>Edit the parameters in the script to explore other settings.</p><a href="../assets/python/return_comparison.py" download="return_comparison.py">Download Python script ↓</a><pre><code>&quot;&quot;&quot;Reproduce a FinTech course figure.
+Install: python -m pip install numpy pandas matplotlib scipy
+For data examples, save avg_price_per_day.csv beside this script.
+&quot;&quot;&quot;
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+r = np.linspace(-30, 30, 241)
+log_return = 100 * np.log1p(r / 100)
+selected = 100 * (61923 / 59345 - 1)
+fig, ax = plt.subplots(figsize=(8, 4.5))
+ax.plot(r, r, color=&quot;#c87229&quot;, label=&quot;Simple return&quot;)
+ax.plot(r, log_return, color=&quot;#0e8d84&quot;, label=&quot;Log return&quot;)
+ax.axvline(selected, color=&quot;grey&quot;, linestyle=&quot;--&quot;, linewidth=1)
+ax.scatter([selected, selected], [selected, 100*np.log1p(selected/100)],
+           color=[&quot;#c87229&quot;, &quot;#0e8d84&quot;], zorder=3)
+ax.axhline(0, color=&quot;lightgrey&quot;, linewidth=0.8)
+ax.axvline(0, color=&quot;lightgrey&quot;, linewidth=0.8)
+ax.set(xlabel=&quot;Simple return (%)&quot;, ylabel=&quot;Return (%)&quot;, xlim=(-30, 30))
+ax.legend()
+
+plt.tight_layout()
+plt.show()
+</code></pre></div></details>
+        </div>
+      </section>
+
+      <section class="lesson-section" id="game">
+        <h2>03 · Can a histogram show what happened over time?</h2>
+        <p>Use the 92 daily BTC log price returns from 8 April to 8 July 2026. First study their sequence and histogram. Predict what will change if we shuffle the same 92 returns, then compare the views.</p>
+        <div class="game-card">
+          <div class="game-head"><h3>BTC log-return shuffle experiment</h3></div>
+          <div class="lab-controls"><div class="lab-buttons"><button id="shuffle-returns" type="button">Shuffle the 92 days</button><button id="reset-returns" type="button">Restore observed order</button></div></div>
+          <div class="lab-stats" aria-live="polite"><div><small>Final price (USD)</small><strong id="final-price">—</strong></div><div><small>Days with a loss</small><strong id="loss-days">—</strong></div><div><small>Sequence</small><strong id="sequence-label">Observed</strong></div></div>
+          <div class="chart-grid">
+            <figure><figcaption>BTC price path · USD</figcaption><svg id="price-path" class="lab-chart" viewBox="0 0 400 220" role="img" aria-label="BTC price path in USD"></svg><details class="python-reproduce"><summary>Reproduce with Python</summary><div class="python-reproduce-body"><p>Edit the parameters in the script to explore other settings.</p><a href="../assets/python/btc_price_path.py" download="btc_price_path.py">Download Python script ↓</a><pre><code>&quot;&quot;&quot;Reproduce a FinTech course figure.
+Install: python -m pip install numpy pandas matplotlib scipy
+For data examples, save avg_price_per_day.csv beside this script.
+&quot;&quot;&quot;
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Read the same 93 BTC prices used by the website.
+data_file = Path(__file__).with_name(&quot;avg_price_per_day.csv&quot;)
+if not data_file.exists():
+    data_file = Path(__file__).resolve().parent.parent / &quot;data/avg_price_per_day.csv&quot;
+data = pd.read_csv(data_file, usecols=[&quot;Date&quot;, &quot;BTC&quot;], parse_dates=[&quot;Date&quot;])
+data = data.loc[data[&quot;Date&quot;].between(&quot;2026-04-07&quot;, &quot;2026-07-08&quot;)].sort_values(&quot;Date&quot;)
+prices = data[&quot;BTC&quot;].to_numpy(dtype=float)
+dates = data[&quot;Date&quot;].to_numpy()
+g = 100 * np.diff(np.log(prices))  # Log returns in percentage points.
+
+SHUFFLE = False  # Change to True to explore a reordered path.
+SEED = 42
+if SHUFFLE:
+    g = np.random.default_rng(SEED).permutation(g)
+path = prices[0] * np.exp(np.r_[0, np.cumsum(g / 100)])
+
+fig, ax = plt.subplots(figsize=(7, 4))
+ax.plot(dates, path, color=&quot;#2167a0&quot;)
+ax.scatter(dates[[0, -1]], path[[0, -1]], color=&quot;#2167a0&quot;)
+ax.set(xlabel=&quot;Date&quot;, ylabel=&quot;BTC price (USD)&quot;, title=&quot;BTC price path&quot;)
+fig.autofmt_xdate()
+
+plt.tight_layout()
+plt.show()
+</code></pre></div></details></figure>
+            <figure><figcaption>Daily log returns · time order</figcaption><svg id="return-bars" class="lab-chart" viewBox="0 0 400 220" role="img" aria-label="Daily log-return sequence"></svg><details class="python-reproduce"><summary>Reproduce with Python</summary><div class="python-reproduce-body"><p>Edit the parameters in the script to explore other settings.</p><a href="../assets/python/btc_return_sequence.py" download="btc_return_sequence.py">Download Python script ↓</a><pre><code>&quot;&quot;&quot;Reproduce a FinTech course figure.
+Install: python -m pip install numpy pandas matplotlib scipy
+For data examples, save avg_price_per_day.csv beside this script.
+&quot;&quot;&quot;
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Read the same 93 BTC prices used by the website.
+data_file = Path(__file__).with_name(&quot;avg_price_per_day.csv&quot;)
+if not data_file.exists():
+    data_file = Path(__file__).resolve().parent.parent / &quot;data/avg_price_per_day.csv&quot;
+data = pd.read_csv(data_file, usecols=[&quot;Date&quot;, &quot;BTC&quot;], parse_dates=[&quot;Date&quot;])
+data = data.loc[data[&quot;Date&quot;].between(&quot;2026-04-07&quot;, &quot;2026-07-08&quot;)].sort_values(&quot;Date&quot;)
+prices = data[&quot;BTC&quot;].to_numpy(dtype=float)
+dates = data[&quot;Date&quot;].to_numpy()
+g = 100 * np.diff(np.log(prices))  # Log returns in percentage points.
+
+SHUFFLE = False  # Change to True to explore a reordered path.
+SEED = 42
+if SHUFFLE:
+    g = np.random.default_rng(SEED).permutation(g)
+path = prices[0] * np.exp(np.r_[0, np.cumsum(g / 100)])
+
+fig, ax = plt.subplots(figsize=(7, 4))
+ax.bar(dates[1:], g, width=0.8,
+       color=np.where(g &gt;= 0, &quot;#0e8d84&quot;, &quot;#c87229&quot;))
+ax.axhline(0, color=&quot;grey&quot;, linewidth=0.8)
+ax.set(xlabel=&quot;Date&quot;, ylabel=&quot;Daily log return (%)&quot;, title=&quot;BTC log returns&quot;)
+fig.autofmt_xdate()
+
+plt.tight_layout()
+plt.show()
+</code></pre></div></details></figure>
+            <figure><figcaption>BTC price distribution · path days</figcaption><svg id="price-hist" class="lab-chart" viewBox="0 0 400 220" role="img" aria-label="Histogram of BTC daily prices in USD"></svg><details class="python-reproduce"><summary>Reproduce with Python</summary><div class="python-reproduce-body"><p>Edit the parameters in the script to explore other settings.</p><a href="../assets/python/btc_price_histogram.py" download="btc_price_histogram.py">Download Python script ↓</a><pre><code>&quot;&quot;&quot;Reproduce a FinTech course figure.
+Install: python -m pip install numpy pandas matplotlib scipy
+For data examples, save avg_price_per_day.csv beside this script.
+&quot;&quot;&quot;
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Read the same 93 BTC prices used by the website.
+data_file = Path(__file__).with_name(&quot;avg_price_per_day.csv&quot;)
+if not data_file.exists():
+    data_file = Path(__file__).resolve().parent.parent / &quot;data/avg_price_per_day.csv&quot;
+data = pd.read_csv(data_file, usecols=[&quot;Date&quot;, &quot;BTC&quot;], parse_dates=[&quot;Date&quot;])
+data = data.loc[data[&quot;Date&quot;].between(&quot;2026-04-07&quot;, &quot;2026-07-08&quot;)].sort_values(&quot;Date&quot;)
+prices = data[&quot;BTC&quot;].to_numpy(dtype=float)
+dates = data[&quot;Date&quot;].to_numpy()
+g = 100 * np.diff(np.log(prices))  # Log returns in percentage points.
+
+SHUFFLE = False  # Change to True to explore a reordered path.
+SEED = 42
+if SHUFFLE:
+    g = np.random.default_rng(SEED).permutation(g)
+path = prices[0] * np.exp(np.r_[0, np.cumsum(g / 100)])
+
+# The website histogram uses the 92 prices after the starting price.
+values = path[1:]
+low = np.floor(values.min() / 5000) * 5000
+high = np.ceil(values.max() / 5000) * 5000
+fig, ax = plt.subplots(figsize=(7, 4))
+ax.hist(values, bins=np.linspace(low, high, 19), color=&quot;#2167a0&quot;, rwidth=0.95)
+ax.set(xlabel=&quot;BTC price (USD)&quot;, ylabel=&quot;Frequency (days)&quot;,
+       title=&quot;BTC price distribution&quot;)
+
+plt.tight_layout()
+plt.show()
+</code></pre></div></details></figure>
+            <figure><figcaption>Log-return distribution · 92 days</figcaption><svg id="return-hist" class="lab-chart" viewBox="0 0 400 220" role="img" aria-label="Histogram of daily log returns"></svg><details class="python-reproduce"><summary>Reproduce with Python</summary><div class="python-reproduce-body"><p>Edit the parameters in the script to explore other settings.</p><a href="../assets/python/btc_return_histogram.py" download="btc_return_histogram.py">Download Python script ↓</a><pre><code>&quot;&quot;&quot;Reproduce a FinTech course figure.
+Install: python -m pip install numpy pandas matplotlib scipy
+For data examples, save avg_price_per_day.csv beside this script.
+&quot;&quot;&quot;
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Read the same 93 BTC prices used by the website.
+data_file = Path(__file__).with_name(&quot;avg_price_per_day.csv&quot;)
+if not data_file.exists():
+    data_file = Path(__file__).resolve().parent.parent / &quot;data/avg_price_per_day.csv&quot;
+data = pd.read_csv(data_file, usecols=[&quot;Date&quot;, &quot;BTC&quot;], parse_dates=[&quot;Date&quot;])
+data = data.loc[data[&quot;Date&quot;].between(&quot;2026-04-07&quot;, &quot;2026-07-08&quot;)].sort_values(&quot;Date&quot;)
+prices = data[&quot;BTC&quot;].to_numpy(dtype=float)
+dates = data[&quot;Date&quot;].to_numpy()
+g = 100 * np.diff(np.log(prices))  # Log returns in percentage points.
+
+SHUFFLE = False  # Change to True to explore a reordered path.
+SEED = 42
+if SHUFFLE:
+    g = np.random.default_rng(SEED).permutation(g)
+path = prices[0] * np.exp(np.r_[0, np.cumsum(g / 100)])
+
+fig, ax = plt.subplots(figsize=(7, 4))
+ax.hist(g, bins=np.linspace(-6, 6, 21), color=&quot;#0e8d84&quot;, rwidth=0.95)
+ax.set(xlabel=&quot;Daily log return (%)&quot;, ylabel=&quot;Frequency (days)&quot;,
+       title=&quot;BTC log-return distribution&quot;)
+
+plt.tight_layout()
+plt.show()
+</code></pre></div></details></figure>
+          </div>
+          <div class="challenge"><h4>Predict before shuffling</h4><p>Which will stay the same when the same log returns are reordered?</p><label><input type="radio" name="shuffle-prediction" value="path"> The full price path</label><label><input type="radio" name="shuffle-prediction" value="distribution"> The final price and log-return histogram</label><label><input type="radio" name="shuffle-prediction" value="prices"> Every observed price</label><button id="check-prediction" type="button">Check prediction</button><div id="game-feedback" class="feedback" role="status">Make a prediction, then shuffle.</div></div>
+        </div>
+      </section>
+
+      <section class="lesson-section" id="charts">
+        <h2>04 · What do BTC log returns reveal?</h2>
+        <p>Janni asks: “If I hold BTC for one more day, what return is most likely?”</p>
+        <div class="explore-card">
+          <div class="explore-head"><h3>Histogram and distribution</h3><span>92 BTC daily log returns</span></div>
+          <div class="view-switch" role="group" aria-label="Distribution layers"><button type="button" data-layer="hist" class="selected">1 · Histogram</button><button type="button" data-layer="kde">2 · Add KDE (Kernel density estimation)</button><button type="button" data-layer="normal">3 · Add normal benchmark</button></div>
+          <div class="bin-control" id="bin-control"><label for="bin-count">Histogram bins: <output id="bin-value">10</output></label><input id="bin-count" type="range" min="6" max="20" value="10"></div>
+          <div class="bin-control" id="bandwidth-control" hidden><label for="kde-bandwidth">KDE bandwidth: <output id="bandwidth-value">0.70</output> percentage points</label><input id="kde-bandwidth" type="range" min="0.25" max="2" step="0.05" value="0.70"><span class="fixed-bins">Histogram fixed at <output id="fixed-bin-value">10</output> bins</span></div>
+          <svg id="distribution-plot" class="explore-plot" viewBox="0 0 760 350" role="img" aria-label="BTC log-return distribution"></svg><details class="python-reproduce"><summary>Reproduce with Python</summary><div class="python-reproduce-body"><p>Edit the parameters in the script to explore other settings.</p><a href="../assets/python/btc_distribution.py" download="btc_distribution.py">Download Python script ↓</a><pre><code>&quot;&quot;&quot;Reproduce a FinTech course figure.
+Install: python -m pip install numpy pandas matplotlib scipy
+For data examples, save avg_price_per_day.csv beside this script.
+&quot;&quot;&quot;
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Read the same 93 BTC prices used by the website.
+data_file = Path(__file__).with_name(&quot;avg_price_per_day.csv&quot;)
+if not data_file.exists():
+    data_file = Path(__file__).resolve().parent.parent / &quot;data/avg_price_per_day.csv&quot;
+data = pd.read_csv(data_file, usecols=[&quot;Date&quot;, &quot;BTC&quot;], parse_dates=[&quot;Date&quot;])
+data = data.loc[data[&quot;Date&quot;].between(&quot;2026-04-07&quot;, &quot;2026-07-08&quot;)].sort_values(&quot;Date&quot;)
+prices = data[&quot;BTC&quot;].to_numpy(dtype=float)
+dates = data[&quot;Date&quot;].to_numpy()
+g = 100 * np.diff(np.log(prices))  # Log returns in percentage points.
+
+# Match the website&#x27;s editable settings.
+BINS = 10
+BANDWIDTH = 0.70  # Percentage points; not scipy&#x27;s bandwidth factor.
+LAYER = &quot;hist&quot;  # &quot;hist&quot;, &quot;kde&quot;, or &quot;normal&quot;.
+low, high = np.floor(g.min() - 1), np.ceil(g.max() + 1)
+edges = np.linspace(low, high, BINS + 1)
+x = np.linspace(low, high, 400)
+# Gaussian KDE with an absolute bandwidth in return percentage points.
+z = (x[:, None] - g[None, :]) / BANDWIDTH
+kde = np.exp(-z*z/2).mean(axis=1) / (BANDWIDTH*np.sqrt(2*np.pi))
+mu, sd = g.mean(), g.std(ddof=1)
+normal = np.exp(-0.5*((x-mu)/sd)**2) / (sd*np.sqrt(2*np.pi))
+fig, ax = plt.subplots(figsize=(8, 4.5))
+density = LAYER != &quot;hist&quot;
+ax.hist(g, bins=edges, density=density, color=&quot;#7bb1d2&quot;, alpha=0.7,
+        rwidth=0.98, label=&quot;Histogram&quot;)
+if LAYER in (&quot;kde&quot;, &quot;normal&quot;):
+    ax.plot(x, kde, color=&quot;#0e8d84&quot;, label=&quot;KDE&quot;)
+if LAYER == &quot;normal&quot;:
+    ax.plot(x, normal, color=&quot;#c87229&quot;, linestyle=&quot;--&quot;, label=&quot;Normal benchmark&quot;)
+ax.set(xlabel=&quot;Daily log return (%)&quot;,
+       ylabel=&quot;Density per percentage point&quot; if density else &quot;Frequency (days)&quot;)
+ax.legend()
+
+plt.tight_layout()
+plt.show()
+</code></pre></div></details>
+          <div id="distribution-explainer" class="explore-note" role="status"><div><strong>Definition:</strong> A histogram counts observations within equal-width return ranges called bins.</div><div><strong>Advantage:</strong> Shows which return ranges occurred most often in the observed period.</div><div><strong>Bins:</strong> Too few can hide detail; too many can produce a jagged picture with empty bins.</div><div><strong>Limitation:</strong> An empty bin means no return fell in that range in this sample—not that a future return cannot.</div></div>
+        </div>
+        <p class="data-note">In view 1, bar height counts days. In views 2 and 3, each bar is rescaled to density: count ÷ (92 × bin width in percentage points). The bar area represents the observed share in that range, so bars and curves can share one vertical scale. KDE is estimated from these observations; the normal curve uses this sample's mean and standard deviation. With 92 returns, tail comparisons are exploratory.</p>
+        <div class="question-bridge"><strong>The next question:</strong> Can past BTC log returns help predict the next return?</div>
+        <figure class="explore-figure time-carousel" id="time-carousel" aria-label="Two views of BTC log returns in time order">
+          <figcaption><span id="time-slide-title">Yesterday → today · observed BTC log returns</span><span id="time-slide-count">1 / 2</span></figcaption>
+          <button class="time-slide-picture" id="time-slide-picture" type="button" aria-label="Show daily log-return sequence"><svg id="time-lag-preview" class="explore-plot" viewBox="0 0 760 385" role="img" aria-label="Animated scatter of yesterday's and today's observed BTC log returns"></svg><svg id="time-plot" class="explore-plot" viewBox="0 0 760 280" role="img" aria-label="Daily BTC log returns in chronological order" hidden></svg></button>
+          <div class="time-preview-controls" id="time-preview-controls"><button id="time-preview-play" type="button">▶ Replay pairs</button><label for="time-preview-progress">Pairs shown <output id="time-preview-count">91 / 91</output></label><input id="time-preview-progress" type="range" min="0" max="91" value="91"></div>
+          <div class="time-carousel-controls"><button id="time-previous" type="button" disabled>← Previous</button><button id="time-next" type="button">Next →</button></div><details class="python-reproduce" id="python-time-scatter"><summary>Reproduce with Python</summary><div class="python-reproduce-body"><p>Edit the parameters in the script to explore other settings.</p><a href="../assets/python/btc_lag_scatter.py" download="btc_lag_scatter.py">Download Python script ↓</a><pre><code>&quot;&quot;&quot;Reproduce a FinTech course figure.
+Install: python -m pip install numpy pandas matplotlib scipy
+For data examples, save avg_price_per_day.csv beside this script.
+&quot;&quot;&quot;
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Read the same 93 BTC prices used by the website.
+data_file = Path(__file__).with_name(&quot;avg_price_per_day.csv&quot;)
+if not data_file.exists():
+    data_file = Path(__file__).resolve().parent.parent / &quot;data/avg_price_per_day.csv&quot;
+data = pd.read_csv(data_file, usecols=[&quot;Date&quot;, &quot;BTC&quot;], parse_dates=[&quot;Date&quot;])
+data = data.loc[data[&quot;Date&quot;].between(&quot;2026-04-07&quot;, &quot;2026-07-08&quot;)].sort_values(&quot;Date&quot;)
+prices = data[&quot;BTC&quot;].to_numpy(dtype=float)
+dates = data[&quot;Date&quot;].to_numpy()
+g = 100 * np.diff(np.log(prices))  # Log returns in percentage points.
+
+x, y = g[:-1], g[1:]  # 91 observed yesterday–today pairs.
+slope, intercept = np.polyfit(x, y, 1)  # OLS with an intercept.
+limit = np.ceil(np.max(np.abs(g)) + 1)
+line_x = np.array([-limit, limit])
+fig, ax = plt.subplots(figsize=(6, 6))
+ax.scatter(x, y, color=&quot;#2167a0&quot;, alpha=0.65)
+ax.scatter(x[-1], y[-1], color=&quot;#d95b31&quot;, zorder=3)
+ax.plot(line_x, intercept + slope*line_x, color=&quot;#c06a32&quot;, label=&quot;Linear fit&quot;)
+ax.axhline(0, color=&quot;lightgrey&quot;, linewidth=0.8)
+ax.axvline(0, color=&quot;lightgrey&quot;, linewidth=0.8)
+ax.set(xlabel=&quot;Yesterday&#x27;s log return (%)&quot;, ylabel=&quot;Today&#x27;s log return (%)&quot;,
+       xlim=(-limit, limit), ylim=(-limit, limit))
+ax.set_aspect(&quot;equal&quot;, adjustable=&quot;box&quot;)
+ax.legend()
+print(f&quot;OLS slope = {slope:.3f}; intercept = {intercept:.3f} percentage points&quot;)
+
+plt.tight_layout()
+plt.show()
+</code></pre></div></details><details class="python-reproduce" id="python-time-series" hidden><summary>Reproduce with Python</summary><div class="python-reproduce-body"><p>Edit the parameters in the script to explore other settings.</p><a href="../assets/python/btc_time_series.py" download="btc_time_series.py">Download Python script ↓</a><pre><code>&quot;&quot;&quot;Reproduce a FinTech course figure.
+Install: python -m pip install numpy pandas matplotlib scipy
+For data examples, save avg_price_per_day.csv beside this script.
+&quot;&quot;&quot;
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Read the same 93 BTC prices used by the website.
+data_file = Path(__file__).with_name(&quot;avg_price_per_day.csv&quot;)
+if not data_file.exists():
+    data_file = Path(__file__).resolve().parent.parent / &quot;data/avg_price_per_day.csv&quot;
+data = pd.read_csv(data_file, usecols=[&quot;Date&quot;, &quot;BTC&quot;], parse_dates=[&quot;Date&quot;])
+data = data.loc[data[&quot;Date&quot;].between(&quot;2026-04-07&quot;, &quot;2026-07-08&quot;)].sort_values(&quot;Date&quot;)
+prices = data[&quot;BTC&quot;].to_numpy(dtype=float)
+dates = data[&quot;Date&quot;].to_numpy()
+g = 100 * np.diff(np.log(prices))  # Log returns in percentage points.
+
+fig, ax = plt.subplots(figsize=(8, 3.5))
+ax.bar(dates[1:], g, color=np.where(g &gt;= 0, &quot;#0e8d84&quot;, &quot;#c87229&quot;))
+ax.axhline(0, color=&quot;grey&quot;, linewidth=0.8)
+ax.set(xlabel=&quot;Date&quot;, ylabel=&quot;Daily log return (%)&quot;)
+fig.autofmt_xdate()
+
+plt.tight_layout()
+plt.show()
+</code></pre></div></details>
+        </figure>
+        <div class="prediction-card">
+          <h3>Do BTC log returns have serial correlation?</h3>
+          <div class="acf-definition">
+            <strong>Autocorrelation function (ACF)</strong>
+            <div class="acf-equations"><div class="acf-equation-line"><span>ACF(k)</span><b>=</b><span>Corr(g<sub>t</sub>, g<sub>t−k</sub>)</span></div><div class="acf-equation-line"><span></span><b>≈</b><span class="acf-fraction"><span><span class="sum-limits"><span>n</span><span>∑</span><span>t=k+1</span></span> (g<sub>t</sub> − ḡ)(g<sub>t−k</sub> − ḡ)</span><span><span class="sum-limits"><span>n</span><span>∑</span><span>t=1</span></span> (g<sub>t</sub> − ḡ)²</span></span></div></div>
+            <p><strong>k</strong> = days apart (1 = yesterday) · <strong>ḡ</strong> = sample mean · <strong>n</strong> = number of returns.</p>
+          </div>
+          <div class="memory-benchmark"><strong>No-memory benchmark</strong><span>g<sub>t</sub> = μ + ε<sub>t</sub> · μ = constant mean · ε<sub>t</sub> = daily surprise</span><span>ACF(k) ≈ 0 for k ≥ 1</span></div>
+          <div class="prediction-controls"><button id="acf-play" type="button">▶ Build ACF</button><label for="acf-lag">Show through lag <output id="acf-lag-value">1</output></label><input id="acf-lag" type="range" min="1" max="12" value="1"><span id="acf-pair-readout">Lag 1 · yesterday → today</span></div>
+          <svg id="acf-plot" class="explore-plot" viewBox="0 0 760 330" role="img" aria-label="Sample autocorrelation function of BTC daily log returns"></svg><details class="python-reproduce"><summary>Reproduce with Python</summary><div class="python-reproduce-body"><p>Edit the parameters in the script to explore other settings.</p><a href="../assets/python/btc_acf_ljung_box.py" download="btc_acf_ljung_box.py">Download Python script ↓</a><pre><code>&quot;&quot;&quot;Reproduce a FinTech course figure.
+Install: python -m pip install numpy pandas matplotlib scipy
+For data examples, save avg_price_per_day.csv beside this script.
+&quot;&quot;&quot;
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Read the same 93 BTC prices used by the website.
+data_file = Path(__file__).with_name(&quot;avg_price_per_day.csv&quot;)
+if not data_file.exists():
+    data_file = Path(__file__).resolve().parent.parent / &quot;data/avg_price_per_day.csv&quot;
+data = pd.read_csv(data_file, usecols=[&quot;Date&quot;, &quot;BTC&quot;], parse_dates=[&quot;Date&quot;])
+data = data.loc[data[&quot;Date&quot;].between(&quot;2026-04-07&quot;, &quot;2026-07-08&quot;)].sort_values(&quot;Date&quot;)
+prices = data[&quot;BTC&quot;].to_numpy(dtype=float)
+dates = data[&quot;Date&quot;].to_numpy()
+g = 100 * np.diff(np.log(prices))  # Log returns in percentage points.
+
+from scipy.stats import chi2
+
+MAX_LAG = 1  # Choose from 1 to 12, as on the website.
+n = len(g)
+centered = g - g.mean()
+# Whole-sample denominator: same ACF estimator as the website and NIST.
+acf = np.array([centered[k:] @ centered[:-k] / (centered @ centered)
+                for k in range(1, MAX_LAG + 1)])
+lags = np.arange(1, MAX_LAG + 1)
+q = n * (n + 2) * np.sum(acf**2 / (n - lags))
+p_value = chi2.sf(q, df=MAX_LAG)  # No fitted ARMA parameters here.
+fig, ax = plt.subplots(figsize=(8, 4))
+ax.bar(lags, acf, color=&quot;#2167a0&quot;)
+guide = 1.96 / np.sqrt(n)
+ax.axhline(0, color=&quot;grey&quot;, linewidth=0.8)
+for bound in [-guide, guide]:
+    ax.axhline(bound, color=&quot;#b6a46b&quot;, linestyle=&quot;--&quot;)
+ax.set(xlabel=&quot;Lag (calendar days)&quot;, ylabel=&quot;ACF&quot;, xticks=lags)
+print(f&quot;n = {n}; lag-1 ACF = {acf[0]:.3f}&quot;)
+print(f&quot;Ljung–Box through lag {MAX_LAG}: Q = {q:.2f}; p = {p_value:.4f}&quot;)
+
+plt.tight_layout()
+plt.show()
+</code></pre></div></details>
+          <p class="explore-note"><strong>Bars:</strong> + same direction · − opposite direction · 0 little linear relation. Dashed guide: ±1.96/√n, where n = observed returns (rough, one lag at a time).</p>
+          <div class="ljung-box" aria-live="polite"><h4>Ljung–Box test · lags 1 through <span id="lb-lag-value">1</span></h4><p><strong>Null hypothesis:</strong> the autocorrelation is zero at every selected lag.</p><div class="lb-formula">Q<sub>h</sub> = n(n + 2) <span class="sum-limits"><span>h</span><span>∑</span><span>k=1</span></span> <span class="lb-fraction"><span>ACF(k)²</span><span>n − k</span></span></div><p class="lb-formula-note"><strong>h</strong> = last selected lag; <strong>n</strong> = observed returns. Q combines the squared ACF bars from lag 1 to h; larger Q means more evidence against the null.</p><div class="ljung-box-stats"><span>Q statistic <strong id="lb-q">—</strong></span><span>p-value <strong id="lb-p">—</strong></span></div><p id="lb-interpretation"></p></div>
+          <div id="white-noise-conclusion" class="concept-card"></div>
+        </div>
+        <div class="prediction-card">
+          <h3>Memory patterns in simulated time series</h3>
+          <p>Compare persistence, no linear memory, and rapid alternation. These are teaching simulations, not labels for BTC.</p>
+          <div class="noise-tabs" role="group" aria-label="Choose a simulated time pattern"><button type="button" data-pattern="pink">Pink-like · persistence</button><button type="button" data-pattern="white" class="selected">White · no linear memory</button><button type="button" data-pattern="blue">Blue-like · alternation</button></div>
+          <div class="paired-views"><figure><figcaption>Time series</figcaption><svg id="pattern-time" class="explore-plot" viewBox="0 0 760 330" role="img" aria-label="Simulated time series"></svg><details class="python-reproduce"><summary>Reproduce with Python</summary><div class="python-reproduce-body"><p>Edit the parameters in the script to explore other settings.</p><a href="../assets/python/memory_time_series.py" download="memory_time_series.py">Download Python script ↓</a><pre><code>&quot;&quot;&quot;Reproduce a FinTech course figure.
+Install: python -m pip install numpy pandas matplotlib scipy
+For data examples, save avg_price_per_day.csv beside this script.
+&quot;&quot;&quot;
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Reproduce the website&#x27;s exact deterministic teaching sequences.
+MODE = &quot;white&quot;  # &quot;pink&quot;, &quot;white&quot;, or &quot;blue&quot;.
+phi = {&quot;pink&quot;: 0.72, &quot;white&quot;: 0.0, &quot;blue&quot;: -0.72}[MODE]
+color = {&quot;pink&quot;: &quot;#bc7796&quot;, &quot;white&quot;: &quot;#657c87&quot;, &quot;blue&quot;: &quot;#447fb2&quot;}[MODE]
+seed = 6417
+shocks = []
+for _ in range(160):
+    seed = (1664525 * seed + 1013904223) % 2**32
+    shocks.append(2 * seed / 2**32 - 1)
+series = np.zeros(160)
+for t, shock in enumerate(shocks):
+    series[t] = shock + (phi * series[t-1] if t else 0)
+
+
+fig, ax = plt.subplots(figsize=(8, 3.5))
+ax.plot(np.arange(1, 161), series, color=color)
+ax.axhline(0, color=&quot;grey&quot;, linewidth=0.8)
+ax.set(xlabel=&quot;Simulated day&quot;, ylabel=&quot;Signal&quot;, ylim=(-3.1, 3.1),
+       title=f&quot;{MODE.capitalize()} teaching sequence&quot;)
+
+plt.tight_layout()
+plt.show()
+</code></pre></div></details></figure><figure><figcaption>ACF of the time series</figcaption><svg id="pattern-acf" class="explore-plot" viewBox="0 0 760 330" role="img" aria-label="ACF of simulated time series"></svg><details class="python-reproduce"><summary>Reproduce with Python</summary><div class="python-reproduce-body"><p>Edit the parameters in the script to explore other settings.</p><a href="../assets/python/memory_acf.py" download="memory_acf.py">Download Python script ↓</a><pre><code>&quot;&quot;&quot;Reproduce a FinTech course figure.
+Install: python -m pip install numpy pandas matplotlib scipy
+For data examples, save avg_price_per_day.csv beside this script.
+&quot;&quot;&quot;
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Reproduce the website&#x27;s exact deterministic teaching sequences.
+MODE = &quot;white&quot;  # &quot;pink&quot;, &quot;white&quot;, or &quot;blue&quot;.
+phi = {&quot;pink&quot;: 0.72, &quot;white&quot;: 0.0, &quot;blue&quot;: -0.72}[MODE]
+color = {&quot;pink&quot;: &quot;#bc7796&quot;, &quot;white&quot;: &quot;#657c87&quot;, &quot;blue&quot;: &quot;#447fb2&quot;}[MODE]
+seed = 6417
+shocks = []
+for _ in range(160):
+    seed = (1664525 * seed + 1013904223) % 2**32
+    shocks.append(2 * seed / 2**32 - 1)
+series = np.zeros(160)
+for t, shock in enumerate(shocks):
+    series[t] = shock + (phi * series[t-1] if t else 0)
+
+
+lags = np.arange(1, 11)
+# The teaching simulator uses Pearson correlation of the paired values.
+acf = [np.corrcoef(series[:-k], series[k:])[0, 1] for k in lags]
+fig, ax = plt.subplots(figsize=(8, 3.5))
+ax.bar(lags, acf, color=color)
+ax.axhline(0, color=&quot;grey&quot;, linewidth=0.8)
+ax.set(xlabel=&quot;Lag (simulated days)&quot;, ylabel=&quot;ACF&quot;, xticks=lags,
+       ylim=(-1, 1), yticks=[-1, -0.5, 0, 0.5, 1])
+
+plt.tight_layout()
+plt.show()
+</code></pre></div></details></figure></div>
+          <p id="pattern-explainer" class="explore-note"></p>
+          <details class="noise-aside"><summary>Why color names? Optional spectrum view</summary><div class="noise-demo"><div class="noise-tabs" role="group" aria-label="Choose an illustrative noise color"><button type="button" data-noise="pink">Pink</button><button type="button" data-noise="white" class="selected">White</button><button type="button" data-noise="blue">Blue</button></div><div class="noise-readout" aria-live="polite"><strong id="noise-name">White noise</strong><span id="noise-clue">No frequency band is favored</span></div><div class="noise-mini-label">SIGNAL OVER TIME</div><svg id="noise-trace" class="explore-plot" viewBox="0 0 760 390" role="img" aria-label="Illustrative noise signals over time"></svg><div class="noise-mini-label">SLOW, MIDDLE, AND FAST COMPONENTS</div><svg id="noise-components" class="explore-plot" viewBox="0 0 760 340" role="img" aria-label="Components and power of an illustrative noise signal"></svg><p id="noise-recipe" class="noise-recipe">Slow + middle + fast = the selected signal above</p></div></details>
+        </div>
+      </section>
+
+      <section class="lesson-section" id="check"><h2>05 · Exit ticket</h2><div class="quiz">
+        <fieldset class="exit-question"><legend>1 · How do returns combine across two days?</legend><label><input type="radio" name="exit-q1" value="a"> Add simple returns exactly.</label><label><input type="radio" name="exit-q1" value="b"> Multiply simple-return growth factors; add log returns.</label><label><input type="radio" name="exit-q1" value="c"> Add BTC prices to get the total return.</label></fieldset>
+        <fieldset class="exit-question"><legend>2 · After shuffling the same 92 log returns, what stays the same?</legend><label><input type="radio" name="exit-q2" value="a"> Their histogram and the final reconstructed price.</label><label><input type="radio" name="exit-q2" value="b"> The full price path.</label><label><input type="radio" name="exit-q2" value="c"> Yesterday–today pairs.</label></fieldset>
+        <fieldset class="exit-question"><legend>3 · What does a positive lag-1 ACF and a significant Ljung–Box test tell us?</legend><label><input type="radio" name="exit-q3" value="a"> Future BTC returns can be predicted reliably.</label><label><input type="radio" name="exit-q3" value="b"> The return histogram must be normal.</label><label><input type="radio" name="exit-q3" value="c"> This sample shows linear memory; future forecasting needs separate validation.</label></fieldset>
+        <button id="check-quiz" type="button">Check answers</button><div id="quiz-feedback" class="feedback" role="status">Choose one answer for each question.</div>
+      </div></section>
+      <section class="lesson-section source-list" id="sources">
+        <h2>Reference</h2>
+        <ul class="reference-list">
+          <li>Blockchain Research Center, n.d. Daily average cryptocurrency prices. Course dataset avg_price_per_day.csv; this lesson uses BTC prices in USD from 7 April–8 July 2026. URL: <a href="https://blockchain-research-center.com" target="_blank" rel="noopener">https://blockchain-research-center.com</a>. Data: <a href="../assets/data/avg_price_per_day.csv" download="avg_price_per_day.csv">download CSV</a>.</li>
+          <li>Brooks, C., 2014. Introductory Econometrics for Finance. 3rd ed. Cambridge University Press, Box 1.3. URL: <a href="https://assets.cambridge.org/97811070/34662/excerpt/9781107034662_excerpt.pdf" target="_blank" rel="noopener">https://assets.cambridge.org/97811070/34662/excerpt/9781107034662_excerpt.pdf</a>.</li>
+          <li>Ellis, D., n.d. About Colored Noise. Columbia University. URL: <a href="https://www.ee.columbia.edu/~dpwe/noise/" target="_blank" rel="noopener">https://www.ee.columbia.edu/~dpwe/noise/</a>.</li>
+          <li>Huang, C., Petukhina, A., 2022. Applied Time Series Analysis and Forecasting with Python. Draft dated 5 June 2022, p. 26 and §1.3.3.</li>
+          <li>National Institute of Standards and Technology, n.d. Autocorrelation. NIST/SEMATECH e-Handbook of Statistical Methods, §1.3.5.12. URL: <a href="https://www.itl.nist.gov/div898/handbook/eda/section3/eda35c.htm" target="_blank" rel="noopener">https://www.itl.nist.gov/div898/handbook/eda/section3/eda35c.htm</a>.</li>
+          <li>National Institute of Standards and Technology, n.d. Box-Ljung Test. NIST/SEMATECH e-Handbook of Statistical Methods, §6.4.4.8.1. URL: <a href="https://itl.nist.gov/div898/handbook/pmc/section4/pmc4481.htm" target="_blank" rel="noopener">https://itl.nist.gov/div898/handbook/pmc/section4/pmc4481.htm</a>.</li>
+          <li>Pennsylvania State University, n.d. Time Series Basics. STAT 510: Applied Time Series Analysis. URL: <a href="https://online.stat.psu.edu/stat510/Lesson01" target="_blank" rel="noopener">https://online.stat.psu.edu/stat510/Lesson01</a>.</li>
+        </ul>
+      </section>
+    </main><nav class="right-nav" aria-label="On this page"><h3>On this page</h3><a href="#story">Janni’s BTC investment</a><a href="#returns">Simple &amp; log returns</a><a href="#game">Distribution lab</a><a href="#charts">Prediction &amp; white noise</a><a href="#check">Exit ticket</a></nav>
+  </div>
+</body>
+</html>

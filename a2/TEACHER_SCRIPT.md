@@ -42,7 +42,7 @@ Key data figures have a collapsed **Reproduce with Python** panel with complete 
 ## Sources
 
 - Course-provided `data/avg_price_per_day.csv`, BTC column; [download the 93-day extract](../assets/data/btc_daily_average_2026-04-07_2026-07-08.csv).
-- Huang & Petukhina, *Applied Time Series Analysis and Forecasting with Python* (2022 draft), p. 26 for log returns and §1.3.3 for sample ACF.
+- Huang, C., & Petukhina, A. (2022). *Applied Time Series Analysis and Forecasting with Python*. Statistics and Computing. Springer, Cham. https://doi.org/10.1007/978-3-031-13584-2. ISBN 978-3-031-13584-2. See p. 26 for log returns and §1.3.3 for sample ACF.
 - [NIST autocorrelation definition](https://www.itl.nist.gov/div898/handbook/eda/section3/eda35c.htm) and [NIST Box–Ljung test](https://itl.nist.gov/div898/handbook/pmc/section4/pmc4481.htm) for the whole-sample ACF estimator and joint test statistic.
 - [Chris Brooks, *Introductory Econometrics for Finance*, Box 1.3](https://assets.cambridge.org/97811070/34662/excerpt/9781107034662_excerpt.pdf): log returns are time additive.
 - [Columbia University notes on colored noise](https://www.ee.columbia.edu/~dpwe/noise/) for the optional signal analogy.
